@@ -1,0 +1,1371 @@
+local PrismHub = {}
+PrismHub.__index = PrismHub
+
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local RunService = game:GetService("RunService")
+
+-- Lucide Icons
+local Icons = {
+    Home = "🏠",
+    Info = "ℹ",
+    Settings = "⚙",
+    ChevronDown = "›",
+    Check = "✓",
+    X = "✕",
+    Minus = "─",
+    Bell = "🔔"
+}
+
+-- Helper Functions
+local function CreateBlur(parent, intensity)
+    local blur = Instance.new("BlurEffect")
+    blur.Size = intensity or 10
+    blur.Parent = parent or workspace.CurrentCamera
+    return blur
+end
+
+local function TweenColor(object, property, color, duration)
+    local tween = TweenService:Create(object, TweenInfo.new(duration or 0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        [property] = color
+    })
+    tween:Play()
+    return tween
+end
+
+local function TweenSize(object, size, duration, style)
+    local tween = TweenService:Create(object, TweenInfo.new(duration or 0.4, style or Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Size = size
+    })
+    tween:Play()
+    return tween
+end
+
+local function TweenPosition(object, position, duration, style)
+    local tween = TweenService:Create(object, TweenInfo.new(duration or 0.4, style or Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Position = position
+    })
+    tween:Play()
+    return tween
+end
+
+local function CreateGradient(parent, colors, rotation)
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = colors or ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 100, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 100, 255))
+    }
+    gradient.Rotation = rotation or 45
+    gradient.Parent = parent
+    return gradient
+end
+
+-- Create Prism Mosaic Background
+local function CreatePrismBackground(parent)
+    local Background = Instance.new("Frame")
+    Background.Name = "PrismBackground"
+    Background.Size = UDim2.new(1, 0, 1, 0)
+    Background.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+    Background.BorderSizePixel = 0
+    Background.ZIndex = 0
+    Background.Parent = parent
+    
+    local BackCorner = Instance.new("UICorner")
+    BackCorner.CornerRadius = UDim.new(0, 16)
+    BackCorner.Parent = Background
+    
+    -- Animated gradient overlay
+    local Overlay = Instance.new("Frame")
+    Overlay.Size = UDim2.new(1, 0, 1, 0)
+    Overlay.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    Overlay.BackgroundTransparency = 0.3
+    Overlay.BorderSizePixel = 0
+    Overlay.ZIndex = 1
+    Overlay.Parent = Background
+    
+    local OverlayCorner = Instance.new("UICorner")
+    OverlayCorner.CornerRadius = UDim.new(0, 16)
+    OverlayCorner.Parent = Overlay
+    
+    local gradient = CreateGradient(Overlay, ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(80, 60, 200)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(120, 80, 220)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(60, 100, 180))
+    }, 0)
+    
+    -- Animate gradient rotation
+    spawn(function()
+        local rotation = 0
+        while Overlay and Overlay.Parent do
+            rotation = (rotation + 0.5) % 360
+            gradient.Rotation = rotation
+            task.wait(0.05)
+        end
+    end)
+    
+    -- Create mosaic pattern
+    for i = 1, 20 do
+        local Prism = Instance.new("Frame")
+        Prism.Size = UDim2.new(0, math.random(50, 150), 0, math.random(50, 150))
+        Prism.Position = UDim2.new(math.random(), 0, math.random(), 0)
+        Prism.BackgroundColor3 = Color3.fromRGB(
+            math.random(80, 150),
+            math.random(60, 120),
+            math.random(180, 255)
+        )
+        Prism.BackgroundTransparency = math.random(70, 90) / 100
+        Prism.BorderSizePixel = 0
+        Prism.Rotation = math.random(0, 360)
+        Prism.ZIndex = 2
+        Prism.Parent = Background
+        Prism.ClipsDescendants = true
+        
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, math.random(8, 20))
+        corner.Parent = Prism
+        
+        -- Animate prisms
+        spawn(function()
+            while Prism and Prism.Parent do
+                local newPos = UDim2.new(
+                    math.random(), 0,
+                    math.random(), 0
+                )
+                local newRotation = math.random(0, 360)
+                
+                TweenPosition(Prism, newPos, math.random(10, 20))
+                TweenService:Create(Prism, TweenInfo.new(math.random(10, 20), Enum.EasingStyle.Linear), {
+                    Rotation = newRotation
+                }):Play()
+                
+                task.wait(math.random(10, 20))
+            end
+        end)
+    end
+    
+    return Background
+end
+
+-- Create Glass Panel
+local function CreateGlassPanel(parent, size, position, zindex)
+    local Panel = Instance.new("Frame")
+    Panel.Size = size
+    Panel.Position = position
+    Panel.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    Panel.BackgroundTransparency = 0.4
+    Panel.BorderSizePixel = 0
+    Panel.ZIndex = zindex or 3
+    Panel.Parent = parent
+    
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 12)
+    Corner.Parent = Panel
+    
+    local Stroke = Instance.new("UIStroke")
+    Stroke.Color = Color3.fromRGB(100, 100, 150)
+    Stroke.Transparency = 0.7
+    Stroke.Thickness = 1.5
+    Stroke.Parent = Panel
+    
+    return Panel
+end
+
+-- Create Hub
+function PrismHub:CreateHub(config)
+    local self = setmetatable({}, PrismHub)
+    
+    config = config or {}
+    self.HubName = config.Name or "Prism Hub"
+    self.Size = config.Size or UDim2.new(0, 800, 0, 550)
+    self.SubTabsOnLeft = config.SubTabsOnLeft or false
+    self.Theme = config.Theme or "Purple"
+    
+    self.Tabs = {}
+    self.CurrentTab = nil
+    self.CurrentPage = "Home"
+    self.Minimized = false
+    self.Notifications = {}
+    self.PageOrder = {Home = 1, Info = 2, Settings = 3} -- For directional transitions
+    
+    -- Create ScreenGui
+    self.ScreenGui = Instance.new("ScreenGui")
+    self.ScreenGui.Name = "PrismHub"
+    self.ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    self.ScreenGui.Parent = CoreGui
+    
+    -- Blur Effect
+    self.Blur = CreateBlur(workspace.CurrentCamera, 0)
+    
+    -- Dropdown Container
+    self.DropdownContainer = Instance.new("Frame")
+    self.DropdownContainer.Name = "DropdownContainer"
+    self.DropdownContainer.Size = UDim2.new(1, 0, 1, 0)
+    self.DropdownContainer.BackgroundTransparency = 1
+    self.DropdownContainer.ZIndex = 100
+    self.DropdownContainer.Parent = self.ScreenGui
+    
+    -- Notification Container
+    self.NotificationContainer = Instance.new("Frame")
+    self.NotificationContainer.Name = "NotificationContainer"
+    self.NotificationContainer.Size = UDim2.new(0, 300, 1, 0)
+    self.NotificationContainer.Position = UDim2.new(1, -320, 0, 20)
+    self.NotificationContainer.BackgroundTransparency = 1
+    self.NotificationContainer.ZIndex = 200
+    self.NotificationContainer.Parent = self.ScreenGui
+    
+    local NotifLayout = Instance.new("UIListLayout")
+    NotifLayout.Padding = UDim.new(0, 10)
+    NotifLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    NotifLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+    NotifLayout.Parent = self.NotificationContainer
+    
+    -- Main Frame
+    self.MainFrame = Instance.new("Frame")
+    self.MainFrame.Name = "MainFrame"
+    self.MainFrame.Size = self.Size
+    self.MainFrame.Position = UDim2.new(0.5, -self.Size.X.Offset/2, 0.5, -self.Size.Y.Offset/2)
+    self.MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+    self.MainFrame.BackgroundTransparency = 0.2
+    self.MainFrame.BorderSizePixel = 0
+    self.MainFrame.ClipsDescendants = true
+    self.MainFrame.Parent = self.ScreenGui
+    
+    local MainCorner = Instance.new("UICorner")
+    MainCorner.CornerRadius = UDim.new(0, 16)
+    MainCorner.Parent = self.MainFrame
+    
+    local MainStroke = Instance.new("UIStroke")
+    MainStroke.Color = Color3.fromRGB(120, 100, 200)
+    MainStroke.Transparency = 0.5
+    MainStroke.Thickness = 2
+    MainStroke.Parent = self.MainFrame
+    
+    -- Drop shadow effect
+    local Shadow = Instance.new("ImageLabel")
+    Shadow.Name = "Shadow"
+    Shadow.Size = UDim2.new(1, 40, 1, 40)
+    Shadow.Position = UDim2.new(0, -20, 0, -20)
+    Shadow.BackgroundTransparency = 1
+    Shadow.Image = "rbxassetid://5554236805" -- Shadow image
+    Shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    Shadow.ImageTransparency = 0.7
+    Shadow.ScaleType = Enum.ScaleType.Slice
+    Shadow.SliceCenter = Rect.new(23, 23, 277, 277)
+    Shadow.ZIndex = -1
+    Shadow.Parent = self.MainFrame
+    
+    -- Prism Background
+    CreatePrismBackground(self.MainFrame)
+    
+    -- Top Bar
+    self.TopBar = CreateGlassPanel(self.MainFrame, UDim2.new(1, 0, 0, 45), UDim2.new(0, 0, 0, 0), 10)
+    
+    -- Title with gradient
+    local Title = Instance.new("TextLabel")
+    Title.Name = "Title"
+    Title.Size = UDim2.new(1, -120, 1, 0)
+    Title.Position = UDim2.new(0, 15, 0, 0)
+    Title.BackgroundTransparency = 1
+    Title.Text = self.HubName
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextSize = 20
+    Title.Font = Enum.Font.GothamBold
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.ZIndex = 11
+    Title.Parent = self.TopBar
+    
+    CreateGradient(Title, ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(150, 150, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 150, 255))
+    }, 0)
+    
+    -- Close Button
+    local CloseButton = self:CreateIconButton(self.TopBar, Icons.X, UDim2.new(0, 35, 0, 35), UDim2.new(1, -42, 0, 5))
+    CloseButton.MouseButton1Click:Connect(function()
+        self:Destroy()
+    end)
+    
+    -- Minimize Button
+    local MinimizeButton = self:CreateIconButton(self.TopBar, Icons.Minus, UDim2.new(0, 35, 0, 35), UDim2.new(1, -82, 0, 5))
+    MinimizeButton.MouseButton1Click:Connect(function()
+        self:ToggleMinimize()
+    end)
+    
+    -- Sidebar (Centered buttons)
+    self.Sidebar = CreateGlassPanel(self.MainFrame, UDim2.new(0, 70, 1, -55), UDim2.new(0, 5, 0, 50), 10)
+    
+    -- Content Frame
+    self.ContentFrame = Instance.new("Frame")
+    self.ContentFrame.Name = "ContentFrame"
+    self.ContentFrame.Size = UDim2.new(1, -85, 1, -60)
+    self.ContentFrame.Position = UDim2.new(0, 80, 0, 55)
+    self.ContentFrame.BackgroundTransparency = 1
+    self.ContentFrame.BorderSizePixel = 0
+    self.ContentFrame.ClipsDescendants = true
+    self.ContentFrame.ZIndex = 10
+    self.ContentFrame.Parent = self.MainFrame
+    
+    -- Home Container
+    self.HomeContainer = Instance.new("Frame")
+    self.HomeContainer.Name = "HomeContainer"
+    self.HomeContainer.Size = UDim2.new(1, 0, 1, 0)
+    self.HomeContainer.Position = UDim2.new(0, 0, 0, 0)
+    self.HomeContainer.BackgroundTransparency = 1
+    self.HomeContainer.Visible = true
+    self.HomeContainer.ZIndex = 11
+    self.HomeContainer.Parent = self.ContentFrame
+    
+    -- Tab Bar
+    self.TabBar = CreateGlassPanel(self.HomeContainer, UDim2.new(1, -20, 0, 45), UDim2.new(0, 10, 0, 10), 12)
+    
+    local TabLayout = Instance.new("UIListLayout")
+    TabLayout.FillDirection = Enum.FillDirection.Horizontal
+    TabLayout.Padding = UDim.new(0, 8)
+    TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    TabLayout.Parent = self.TabBar
+    
+    local TabPadding = Instance.new("UIPadding")
+    TabPadding.PaddingLeft = UDim.new(0, 8)
+    TabPadding.PaddingTop = UDim.new(0, 8)
+    TabPadding.Parent = self.TabBar
+    
+    -- Tab Content Container
+    self.TabContent = CreateGlassPanel(self.HomeContainer, UDim2.new(1, -20, 1, -70), UDim2.new(0, 10, 0, 65), 12)
+    self.TabContent.ClipsDescendants = true -- Changed to true for proper subtab transitions
+    
+    -- Info Container
+    self.InfoContainer = self:CreateInfoPage()
+    
+    -- Settings Container
+    self.SettingsContainer = self:CreateSettingsPage()
+    
+    -- Create Sidebar Navigation
+    self:CreateSidebarButtons()
+    
+    -- Make Draggable
+    self:MakeDraggable(self.MainFrame, self.TopBar)
+    
+    -- Fade in animation
+    self:FadeIn()
+    
+    return self
+end
+
+-- Create Icon Button
+function PrismHub:CreateIconButton(parent, icon, size, position)
+    local Button = Instance.new("TextButton")
+    Button.Size = size
+    Button.Position = position
+    Button.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    Button.BackgroundTransparency = 0.3
+    Button.Text = icon
+    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Button.TextSize = 18
+    Button.Font = Enum.Font.GothamBold
+    Button.ZIndex = 11
+    Button.Parent = parent
+    
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 8)
+    Corner.Parent = Button
+    
+    local Stroke = Instance.new("UIStroke")
+    Stroke.Color = Color3.fromRGB(100, 100, 150)
+    Stroke.Transparency = 0.7
+    Stroke.Thickness = 1
+    Stroke.Parent = Button
+    
+    Button.MouseEnter:Connect(function()
+        TweenColor(Button, "BackgroundColor3", Color3.fromRGB(100, 100, 200), 0.2)
+        TweenService:Create(Button, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {BackgroundTransparency = 0.1}):Play()
+    end)
+    
+    Button.MouseLeave:Connect(function()
+        TweenColor(Button, "BackgroundColor3", Color3.fromRGB(40, 40, 50), 0.2)
+        TweenService:Create(Button, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {BackgroundTransparency = 0.3}):Play()
+    end)
+    
+    Button.MouseButton1Down:Connect(function()
+        TweenSize(Button, UDim2.new(size.X.Scale, size.X.Offset - 4, size.Y.Scale, size.Y.Offset - 4), 0.1, Enum.EasingStyle.Quad)
+    end)
+    
+    Button.MouseButton1Up:Connect(function()
+        TweenSize(Button, size, 0.1, Enum.EasingStyle.Quad)
+    end)
+    
+    return Button
+end
+
+-- Create Sidebar Buttons (Centered)
+function PrismHub:CreateSidebarButtons()
+    local buttons = {
+        {Name = "Home", Icon = Icons.Home, Page = "Home"},
+        {Name = "Info", Icon = Icons.Info, Page = "Info"},
+        {Name = "Settings", Icon = Icons.Settings, Page = "Settings"}
+    }
+    
+    local totalHeight = #buttons * 60 + (#buttons - 1) * 15
+    local startY = (self.Sidebar.AbsoluteSize.Y - totalHeight) / 2
+    
+    for i, data in ipairs(buttons) do
+        local Button = Instance.new("TextButton")
+        Button.Name = data.Name
+        Button.Size = UDim2.new(0, 60, 0, 60)
+        Button.Position = UDim2.new(0, 5, 0, startY + (i-1) * 75)
+        Button.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+        Button.BackgroundTransparency = 0.4
+        Button.Text = data.Icon
+        Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Button.TextSize = 28
+        Button.Font = Enum.Font.GothamBold
+        Button.ZIndex = 11
+        Button.Parent = self.Sidebar
+        
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 12)
+        Corner.Parent = Button
+        
+        local Stroke = Instance.new("UIStroke")
+        Stroke.Color = Color3.fromRGB(100, 100, 150)
+        Stroke.Transparency = 0.7
+        Stroke.Thickness = 1.5
+        Stroke.Parent = Button
+        
+        Button.MouseEnter:Connect(function()
+            if self.CurrentPage ~= data.Page then
+                TweenColor(Button, "BackgroundColor3", Color3.fromRGB(60, 60, 80), 0.3)
+                TweenService:Create(Button, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {
+                    BackgroundTransparency = 0.2
+                }):Play()
+            end
+        end)
+        
+        Button.MouseLeave:Connect(function()
+            if self.CurrentPage ~= data.Page then
+                TweenColor(Button, "BackgroundColor3", Color3.fromRGB(40, 40, 50), 0.3)
+                TweenService:Create(Button, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {
+                    BackgroundTransparency = 0.4
+                }):Play()
+            end
+        end)
+        
+        Button.MouseButton1Click:Connect(function()
+            local original = Button.Size
+            TweenSize(Button, UDim2.new(0, 55, 0, 55), 0.1, Enum.EasingStyle.Quad)
+            task.wait(0.1)
+            TweenSize(Button, original, 0.2, Enum.EasingStyle.Elastic)
+            self:SwitchPage(data.Page)
+        end)
+        
+        if data.Page == self.CurrentPage then
+            Button.BackgroundColor3 = Color3.fromRGB(100, 100, 200)
+            Button.BackgroundTransparency = 0.2
+        end
+    end
+end
+
+-- Switch Pages (Improved with directional transitions)
+function PrismHub:SwitchPage(pageName)
+    if self.CurrentPage == pageName then return end
+    
+    local containers = {
+        Home = self.HomeContainer,
+        Info = self.InfoContainer,
+        Settings = self.SettingsContainer
+    }
+    
+    local currentContainer = containers[self.CurrentPage]
+    local newContainer = containers[pageName]
+    
+    if not currentContainer or not newContainer then return end
+    
+    -- Determine direction based on page order
+    local currentOrder = self.PageOrder[self.CurrentPage] or 1
+    local newOrder = self.PageOrder[pageName] or 1
+    local direction = newOrder > currentOrder and 1 or -1 -- 1 = down, -1 = up
+    
+    -- Make new container visible and position it
+    newContainer.Visible = true
+    newContainer.Position = UDim2.new(0, 0, direction, 0)
+    
+    -- Slide both containers simultaneously
+    local tweenInfo = TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+    
+    -- Slide current container out
+    TweenService:Create(currentContainer, tweenInfo, {
+        Position = UDim2.new(0, 0, -direction, 0)
+    }):Play()
+    
+    -- Slide new container in
+    TweenService:Create(newContainer, tweenInfo, {
+        Position = UDim2.new(0, 0, 0, 0)
+    }):Play()
+    
+    -- Wait for animation to complete then hide old container
+    task.wait(0.4)
+    currentContainer.Visible = false
+    currentContainer.Position = UDim2.new(0, 0, 0, 0) -- Reset position
+    
+    self.CurrentPage = pageName
+    self:UpdateSidebarButtons()
+end
+
+-- Update Sidebar Buttons
+function PrismHub:UpdateSidebarButtons()
+    for _, button in pairs(self.Sidebar:GetChildren()) do
+        if button:IsA("TextButton") then
+            local isActive = (button.Name == "Home" and self.CurrentPage == "Home") or
+                           (button.Name == "Info" and self.CurrentPage == "Info") or
+                           (button.Name == "Settings" and self.CurrentPage == "Settings")
+            
+            TweenColor(button, "BackgroundColor3", 
+                isActive and Color3.fromRGB(100, 100, 200) or Color3.fromRGB(40, 40, 50), 0.3)
+            TweenService:Create(button, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {
+                BackgroundTransparency = isActive and 0.2 or 0.4
+            }):Play()
+        end
+    end
+end
+
+-- Create Info Page
+function PrismHub:CreateInfoPage()
+    local InfoContainer = Instance.new("Frame")
+    InfoContainer.Name = "InfoContainer"
+    InfoContainer.Size = UDim2.new(1, 0, 1, 0)
+    InfoContainer.Position = UDim2.new(0, 0, 0, 0)
+    InfoContainer.BackgroundTransparency = 1
+    InfoContainer.Visible = false
+    InfoContainer.ZIndex = 11
+    InfoContainer.Parent = self.ContentFrame
+    
+    local InfoBox = CreateGlassPanel(InfoContainer, UDim2.new(1, -20, 1, -20), UDim2.new(0, 10, 0, 10), 12)
+    
+    local InfoTitle = Instance.new("TextLabel")
+    InfoTitle.Size = UDim2.new(1, -20, 0, 40)
+    InfoTitle.Position = UDim2.new(0, 15, 0, 15)
+    InfoTitle.BackgroundTransparency = 1
+    InfoTitle.Text = "Information & Credits"
+    InfoTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    InfoTitle.TextSize = 22
+    InfoTitle.Font = Enum.Font.GothamBold
+    InfoTitle.TextXAlignment = Enum.TextXAlignment.Left
+    InfoTitle.ZIndex = 13
+    InfoTitle.Parent = InfoBox
+    
+    self.InfoLabel = Instance.new("TextLabel")
+    self.InfoLabel.Size = UDim2.new(1, -30, 1, -70)
+    self.InfoLabel.Position = UDim2.new(0, 15, 0, 60)
+    self.InfoLabel.BackgroundTransparency = 1
+    self.InfoLabel.Text = "Created with Prism Hub\n\nAdd your credits here!"
+    self.InfoLabel.TextColor3 = Color3.fromRGB(200, 200, 220)
+    self.InfoLabel.TextSize = 16
+    self.InfoLabel.Font = Enum.Font.Gotham
+    self.InfoLabel.TextXAlignment = Enum.TextXAlignment.Left
+    self.InfoLabel.TextYAlignment = Enum.TextYAlignment.Top
+    self.InfoLabel.TextWrapped = true
+    self.InfoLabel.ZIndex = 13
+    self.InfoLabel.Parent = InfoBox
+    
+    return InfoContainer
+end
+
+-- Create Settings Page
+function PrismHub:CreateSettingsPage()
+    local SettingsContainer = Instance.new("Frame")
+    SettingsContainer.Name = "SettingsContainer"
+    SettingsContainer.Size = UDim2.new(1, 0, 1, 0)
+    SettingsContainer.Position = UDim2.new(0, 0, 0, 0)
+    SettingsContainer.BackgroundTransparency = 1
+    SettingsContainer.Visible = false
+    SettingsContainer.ZIndex = 11
+    SettingsContainer.Parent = self.ContentFrame
+    
+    local SettingsBox = CreateGlassPanel(SettingsContainer, UDim2.new(1, -20, 1, -20), UDim2.new(0, 10, 0, 10), 12)
+    
+    local SettingsTitle = Instance.new("TextLabel")
+    SettingsTitle.Size = UDim2.new(1, -20, 0, 40)
+    SettingsTitle.Position = UDim2.new(0, 15, 0, 15)
+    SettingsTitle.BackgroundTransparency = 1
+    SettingsTitle.Text = "Settings"
+    SettingsTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    SettingsTitle.TextSize = 22
+    SettingsTitle.Font = Enum.Font.GothamBold
+    SettingsTitle.TextXAlignment = Enum.TextXAlignment.Left
+    SettingsTitle.ZIndex = 13
+    SettingsTitle.Parent = SettingsBox
+    
+    self.SettingsContent = Instance.new("ScrollingFrame")
+    self.SettingsContent.Size = UDim2.new(1, -30, 1, -70)
+    self.SettingsContent.Position = UDim2.new(0, 15, 0, 60)
+    self.SettingsContent.BackgroundTransparency = 1
+    self.SettingsContent.BorderSizePixel = 0
+    self.SettingsContent.ScrollBarThickness = 6
+    self.SettingsContent.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 200)
+    self.SettingsContent.ZIndex = 13
+    self.SettingsContent.Parent = SettingsBox
+    
+    local SettingsLayout = Instance.new("UIListLayout")
+    SettingsLayout.Padding = UDim.new(0, 10)
+    SettingsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    SettingsLayout.Parent = self.SettingsContent
+    
+    return SettingsContainer
+end
+
+-- Create Tab (Improved with position tracking)
+function PrismHub:CreateTab(tabName)
+    local Tab = {
+        Name = tabName,
+        Elements = {},
+        Container = nil,
+        Button = nil,
+        Hub = self,
+        SubTabs = {},
+        CurrentSubTab = nil,
+        Order = #self.Tabs + 1 -- Track order for transitions
+    }
+    
+    -- Tab Button with glass effect
+    local TabButton = Instance.new("TextButton")
+    TabButton.Name = tabName
+    TabButton.Size = UDim2.new(0, 120, 1, -16)
+    TabButton.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    TabButton.BackgroundTransparency = 0.4
+    TabButton.Text = tabName
+    TabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TabButton.TextSize = 15
+    TabButton.Font = Enum.Font.GothamBold
+    TabButton.ZIndex = 13
+    TabButton.LayoutOrder = Tab.Order
+    TabButton.Parent = self.TabBar
+    
+    local TabCorner = Instance.new("UICorner")
+    TabCorner.CornerRadius = UDim.new(0, 8)
+    TabCorner.Parent = TabButton
+    
+    local TabStroke = Instance.new("UIStroke")
+    TabStroke.Color = Color3.fromRGB(100, 100, 150)
+    TabStroke.Transparency = 0.7
+    TabStroke.Thickness = 1
+    TabStroke.Parent = TabButton
+    
+    TabButton.MouseEnter:Connect(function()
+        if self.CurrentTab ~= Tab then
+            TweenColor(TabButton, "BackgroundColor3", Color3.fromRGB(60, 60, 80), 0.3)
+            TweenService:Create(TabButton, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {
+                BackgroundTransparency = 0.2
+            }):Play()
+        end
+    end)
+    
+    TabButton.MouseLeave:Connect(function()
+        if self.CurrentTab ~= Tab then
+            TweenColor(TabButton, "BackgroundColor3", Color3.fromRGB(40, 40, 50), 0.3)
+            TweenService:Create(TabButton, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {
+                BackgroundTransparency = 0.4
+            }):Play()
+        end
+    end)
+    
+    -- Tab Container
+    local Container = Instance.new("ScrollingFrame")
+    Container.Name = tabName .. "Container"
+    Container.Size = UDim2.new(1, -30, 1, -30)
+    Container.Position = UDim2.new(0, 15, 0, 15)
+    Container.BackgroundTransparency = 1
+    Container.BorderSizePixel = 0
+    Container.ScrollBarThickness = 6
+    Container.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 200)
+    Container.Visible = false
+    Container.ClipsDescendants = false
+    Container.ZIndex = 13
+    Container.Parent = self.TabContent
+    
+    local Layout = Instance.new("UIListLayout")
+    Layout.Padding = UDim.new(0, 10)
+    Layout.SortOrder = Enum.SortOrder.LayoutOrder
+    Layout.Parent = Container
+    
+    Tab.Container = Container
+    Tab.Button = TabButton
+    
+    table.insert(self.Tabs, Tab)
+    
+    TabButton.MouseButton1Click:Connect(function()
+        TweenSize(TabButton, UDim2.new(0, 115, 1, -18), 0.1, Enum.EasingStyle.Quad)
+        task.wait(0.1)
+        TweenSize(TabButton, UDim2.new(0, 120, 1, -16), 0.2, Enum.EasingStyle.Elastic)
+        self:SwitchTab(Tab)
+    end)
+    
+    if #self.Tabs == 1 then
+        self:SwitchTab(Tab)
+    end
+    
+    Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        Container.CanvasSize = UDim2.new(0, 0, 0, Layout.AbsoluteContentSize.Y + 15)
+    end)
+    
+    return setmetatable(Tab, {__index = self})
+end
+
+-- Switch Tab (Improved with horizontal transitions)
+function PrismHub:SwitchTab(tab)
+    if self.CurrentTab == tab then return end
+    
+    local currentTab = self.CurrentTab
+    
+    if currentTab then
+        -- Determine direction based on tab order
+        local direction = tab.Order > currentTab.Order and 1 or -1 -- 1 = right, -1 = left
+        
+        -- Make new container visible and position it
+        tab.Container.Visible = true
+        tab.Container.Position = UDim2.new(direction, 15, 0, 15)
+        
+        -- Slide both containers simultaneously
+        local tweenInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+        
+        -- Slide current tab out
+        TweenService:Create(currentTab.Container, tweenInfo, {
+            Position = UDim2.new(-direction, 15, 0, 15)
+        }):Play()
+        
+        -- Slide new tab in
+        TweenService:Create(tab.Container, tweenInfo, {
+            Position = UDim2.new(0, 15, 0, 15)
+        }):Play()
+        
+        -- Wait for animation then hide old tab
+        task.wait(0.35)
+        currentTab.Container.Visible = false
+        currentTab.Container.Position = UDim2.new(0, 15, 0, 15) -- Reset
+        
+        -- Update button appearance
+        TweenColor(currentTab.Button, "BackgroundColor3", Color3.fromRGB(40, 40, 50), 0.3)
+        TweenService:Create(currentTab.Button, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {
+            BackgroundTransparency = 0.4
+        }):Play()
+    else
+        -- First tab, just show it
+        tab.Container.Visible = true
+        tab.Container.Position = UDim2.new(0, 15, 0, 15)
+    end
+    
+    self.CurrentTab = tab
+    
+    -- Update new tab button appearance
+    TweenColor(tab.Button, "BackgroundColor3", Color3.fromRGB(100, 100, 200), 0.3)
+    TweenService:Create(tab.Button, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {
+        BackgroundTransparency = 0.2
+    }):Play()
+end
+
+-- Add Button
+function PrismHub:AddButton(text, callback)
+    local Button = Instance.new("TextButton")
+    Button.Name = text
+    Button.Size = UDim2.new(1, 0, 0, 42)
+    Button.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+    Button.BackgroundTransparency = 0.3
+    Button.Text = text
+    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Button.TextSize = 15
+    Button.Font = Enum.Font.GothamSemibold
+    Button.ZIndex = 14
+    Button.Parent = self.Container
+    
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 10)
+    Corner.Parent = Button
+    
+    local Stroke = Instance.new("UIStroke")
+    Stroke.Color = Color3.fromRGB(100, 100, 150)
+    Stroke.Transparency = 0.7
+    Stroke.Thickness = 1
+    Stroke.Parent = Button
+    
+    Button.MouseEnter:Connect(function()
+        TweenColor(Button, "BackgroundColor3", Color3.fromRGB(80, 80, 120), 0.2)
+        TweenService:Create(Button, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {
+            BackgroundTransparency = 0.1
+        }):Play()
+    end)
+    
+    Button.MouseLeave:Connect(function()
+        TweenColor(Button, "BackgroundColor3", Color3.fromRGB(45, 45, 60), 0.2)
+        TweenService:Create(Button, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {
+            BackgroundTransparency = 0.3
+        }):Play()
+    end)
+    
+    Button.MouseButton1Down:Connect(function()
+        TweenSize(Button, UDim2.new(1, -6, 0, 39), 0.1, Enum.EasingStyle.Quad)
+    end)
+    
+    Button.MouseButton1Up:Connect(function()
+        TweenSize(Button, UDim2.new(1, 0, 0, 42), 0.15, Enum.EasingStyle.Elastic)
+    end)
+    
+    Button.MouseButton1Click:Connect(function()
+        pcall(callback)
+    end)
+    
+    return Button
+end
+
+-- Add Toggle
+function PrismHub:AddToggle(text, default, callback)
+    local toggled = default or false
+    
+    local Frame = Instance.new("Frame")
+    Frame.Name = text
+    Frame.Size = UDim2.new(1, 0, 0, 42)
+    Frame.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+    Frame.BackgroundTransparency = 0.3
+    Frame.ZIndex = 14
+    Frame.Parent = self.Container
+    
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 10)
+    Corner.Parent = Frame
+    
+    local Stroke = Instance.new("UIStroke")
+    Stroke.Color = Color3.fromRGB(100, 100, 150)
+    Stroke.Transparency = 0.7
+    Stroke.Thickness = 1
+    Stroke.Parent = Frame
+    
+    Frame.MouseEnter:Connect(function()
+        TweenColor(Frame, "BackgroundColor3", Color3.fromRGB(55, 55, 70), 0.2)
+        TweenService:Create(Frame, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {
+            BackgroundTransparency = 0.2
+        }):Play()
+    end)
+    
+    Frame.MouseLeave:Connect(function()
+        TweenColor(Frame, "BackgroundColor3", Color3.fromRGB(45, 45, 60), 0.2)
+        TweenService:Create(Frame, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {
+            BackgroundTransparency = 0.3
+        }):Play()
+    end)
+    
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, -70, 1, 0)
+    Label.Position = UDim2.new(0, 15, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = text
+    Label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Label.TextSize = 15
+    Label.Font = Enum.Font.GothamSemibold
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.ZIndex = 15
+    Label.Parent = Frame
+    
+    local Toggle = Instance.new("TextButton")
+    Toggle.Size = UDim2.new(0, 50, 0, 26)
+    Toggle.Position = UDim2.new(1, -60, 0.5, -13)
+    Toggle.BackgroundColor3 = toggled and Color3.fromRGB(100, 100, 220) or Color3.fromRGB(60, 60, 75)
+    Toggle.BackgroundTransparency = 0.2
+    Toggle.Text = ""
+    Toggle.ZIndex = 15
+    Toggle.Parent = Frame
+    
+    local ToggleCorner = Instance.new("UICorner")
+    ToggleCorner.CornerRadius = UDim.new(1, 0)
+    ToggleCorner.Parent = Toggle
+    
+    local ToggleStroke = Instance.new("UIStroke")
+    ToggleStroke.Color = toggled and Color3.fromRGB(120, 120, 255) or Color3.fromRGB(80, 80, 100)
+    ToggleStroke.Transparency = 0.5
+    ToggleStroke.Thickness = 1.5
+    ToggleStroke.Parent = Toggle
+    
+    local Circle = Instance.new("Frame")
+    Circle.Size = UDim2.new(0, 20, 0, 20)
+    Circle.Position = toggled and UDim2.new(1, -23, 0.5, -10) or UDim2.new(0, 3, 0.5, -10)
+    Circle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Circle.ZIndex = 16
+    Circle.Parent = Toggle
+    
+    local CircleCorner = Instance.new("UICorner")
+    CircleCorner.CornerRadius = UDim.new(1, 0)
+    CircleCorner.Parent = Circle
+    
+    Toggle.MouseButton1Click:Connect(function()
+        toggled = not toggled
+        
+        TweenService:Create(Toggle, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {
+            BackgroundColor3 = toggled and Color3.fromRGB(100, 100, 220) or Color3.fromRGB(60, 60, 75)
+        }):Play()
+        
+        TweenService:Create(ToggleStroke, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {
+            Color = toggled and Color3.fromRGB(120, 120, 255) or Color3.fromRGB(80, 80, 100)
+        }):Play()
+        
+        TweenService:Create(Circle, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {
+            Position = toggled and UDim2.new(1, -23, 0.5, -10) or UDim2.new(0, 3, 0.5, -10)
+        }):Play()
+        
+        pcall(callback, toggled)
+    end)
+    
+    return Frame
+end
+
+-- Add Slider
+function PrismHub:AddSlider(text, min, max, default, callback)
+    local value = default or min
+    
+    local Frame = Instance.new("Frame")
+    Frame.Name = text
+    Frame.Size = UDim2.new(1, 0, 0, 60)
+    Frame.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+    Frame.BackgroundTransparency = 0.3
+    Frame.ZIndex = 14
+    Frame.Parent = self.Container
+    
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 10)
+    Corner.Parent = Frame
+    
+    local Stroke = Instance.new("UIStroke")
+    Stroke.Color = Color3.fromRGB(100, 100, 150)
+    Stroke.Transparency = 0.7
+    Stroke.Thickness = 1
+    Stroke.Parent = Frame
+    
+    Frame.MouseEnter:Connect(function()
+        TweenColor(Frame, "BackgroundColor3", Color3.fromRGB(55, 55, 70), 0.2)
+        TweenService:Create(Frame, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {
+            BackgroundTransparency = 0.2
+        }):Play()
+    end)
+    
+    Frame.MouseLeave:Connect(function()
+        TweenColor(Frame, "BackgroundColor3", Color3.fromRGB(45, 45, 60), 0.2)
+        TweenService:Create(Frame, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {
+            BackgroundTransparency = 0.3
+        }):Play()
+    end)
+    
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, -80, 0, 25)
+    Label.Position = UDim2.new(0, 15, 0, 8)
+    Label.BackgroundTransparency = 1
+    Label.Text = text
+    Label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Label.TextSize = 15
+    Label.Font = Enum.Font.GothamSemibold
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.ZIndex = 15
+    Label.Parent = Frame
+    
+    local ValueLabel = Instance.new("TextLabel")
+    ValueLabel.Size = UDim2.new(0, 65, 0, 25)
+    ValueLabel.Position = UDim2.new(1, -75, 0, 8)
+    ValueLabel.BackgroundTransparency = 1
+    ValueLabel.Text = tostring(value)
+    ValueLabel.TextColor3 = Color3.fromRGB(150, 150, 255)
+    ValueLabel.TextSize = 16
+    ValueLabel.Font = Enum.Font.GothamBold
+    ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+    ValueLabel.ZIndex = 15
+    ValueLabel.Parent = Frame
+    
+    local SliderBack = Instance.new("Frame")
+    SliderBack.Size = UDim2.new(1, -30, 0, 8)
+    SliderBack.Position = UDim2.new(0, 15, 1, -20)
+    SliderBack.BackgroundColor3 = Color3.fromRGB(60, 60, 75)
+    SliderBack.BackgroundTransparency = 0.3
+    SliderBack.BorderSizePixel = 0
+    SliderBack.ZIndex = 15
+    SliderBack.Parent = Frame
+    
+    local SliderBackCorner = Instance.new("UICorner")
+    SliderBackCorner.CornerRadius = UDim.new(1, 0)
+    SliderBackCorner.Parent = SliderBack
+    
+    local SliderFill = Instance.new("Frame")
+    SliderFill.Size = UDim2.new((value - min) / (max - min), 0, 1, 0)
+    SliderFill.BackgroundColor3 = Color3.fromRGB(100, 100, 220)
+    SliderFill.BackgroundTransparency = 0.2
+    SliderFill.BorderSizePixel = 0
+    SliderFill.ZIndex = 16
+    SliderFill.Parent = SliderBack
+    
+    local SliderFillCorner = Instance.new("UICorner")
+    SliderFillCorner.CornerRadius = UDim.new(1, 0)
+    SliderFillCorner.Parent = SliderFill
+    
+    local SliderGradient = CreateGradient(SliderFill, ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 100, 220)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 120, 255))
+    }, 90)
+    
+    local dragging = false
+    
+    local function updateSlider(input)
+        local pos = math.clamp((input.Position.X - SliderBack.AbsolutePosition.X) / SliderBack.AbsoluteSize.X, 0, 1)
+        value = math.floor(min + (max - min) * pos)
+        
+        ValueLabel.Text = tostring(value)
+        TweenSize(SliderFill, UDim2.new(pos, 0, 1, 0), 0.15, Enum.EasingStyle.Quart)
+        
+        pcall(callback, value)
+    end
+    
+    SliderBack.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            updateSlider(input)
+        end
+    end)
+    
+    SliderBack.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            updateSlider(input)
+        end
+    end)
+    
+    return Frame
+end
+
+-- Add Dropdown (Fixed)
+function PrismHub:AddDropdown(text, options, callback)
+    local selected = options[1] or "None"
+    local opened = false
+    
+    local Frame = Instance.new("Frame")
+    Frame.Name = text
+    Frame.Size = UDim2.new(1, 0, 0, 42)
+    Frame.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+    Frame.BackgroundTransparency = 0.3
+    Frame.ClipsDescendants = false
+    Frame.ZIndex = 14
+    Frame.Parent = self.Container
+    
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 10)
+    Corner.Parent = Frame
+    
+    local Stroke = Instance.new("UIStroke")
+    Stroke.Color = Color3.fromRGB(100, 100, 150)
+    Stroke.Transparency = 0.7
+    Stroke.Thickness = 1
+    Stroke.Parent = Frame
+    
+    Frame.MouseEnter:Connect(function()
+        if not opened then
+            TweenColor(Frame, "BackgroundColor3", Color3.fromRGB(55, 55, 70), 0.2)
+        end
+    end)
+    
+    Frame.MouseLeave:Connect(function()
+        if not opened then
+            TweenColor(Frame, "BackgroundColor3", Color3.fromRGB(45, 45, 60), 0.2)
+        end
+    end)
+    
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0.5, -15, 1, 0)
+    Label.Position = UDim2.new(0, 15, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = text
+    Label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Label.TextSize = 15
+    Label.Font = Enum.Font.GothamSemibold
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.ZIndex = 15
+    Label.Parent = Frame
+    
+    local DropButton = Instance.new("TextButton")
+    DropButton.Size = UDim2.new(0.5, -20, 0, 30)
+    DropButton.Position = UDim2.new(0.5, 10, 0, 6)
+    DropButton.BackgroundColor3 = Color3.fromRGB(60, 60, 75)
+    DropButton.BackgroundTransparency = 0.2
+    DropButton.Text = selected .. " " .. Icons.ChevronDown
+    DropButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    DropButton.TextSize = 14
+    DropButton.Font = Enum.Font.Gotham
+    DropButton.ZIndex = 15
+    DropButton.Parent = Frame
+    
+    local DropCorner = Instance.new("UICorner")
+    DropCorner.CornerRadius = UDim.new(0, 8)
+    DropCorner.Parent = DropButton
+    
+    local DropStroke = Instance.new("UIStroke")
+    DropStroke.Color = Color3.fromRGB(100, 100, 150)
+    DropStroke.Transparency = 0.6
+    DropStroke.Thickness = 1
+    DropStroke.Parent = DropButton
+    
+    DropButton.MouseEnter:Connect(function()
+        TweenColor(DropButton, "BackgroundColor3", Color3.fromRGB(80, 80, 100), 0.2)
+    end)
+    
+    DropButton.MouseLeave:Connect(function()
+        TweenColor(DropButton, "BackgroundColor3", Color3.fromRGB(60, 60, 75), 0.2)
+    end)
+    
+    -- Options List in dropdown container
+    local OptionsList = Instance.new("Frame")
+    OptionsList.Size = UDim2.new(0, 0, 0, 0)
+    OptionsList.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+    OptionsList.BackgroundTransparency = 0.1
+    OptionsList.BorderSizePixel = 0
+    OptionsList.Visible = false
+    OptionsList.ZIndex = 150
+    OptionsList.ClipsDescendants = true
+    OptionsList.Parent = self.Hub.DropdownContainer
+    
+    local OptionsCorner = Instance.new("UICorner")
+    OptionsCorner.CornerRadius = UDim.new(0, 8)
+    OptionsCorner.Parent = OptionsList
+    
+    local OptionsStroke = Instance.new("UIStroke")
+    OptionsStroke.Color = Color3.fromRGB(100, 100, 200)
+    OptionsStroke.Transparency = 0.5
+    OptionsStroke.Thickness = 1.5
+    OptionsStroke.Parent = OptionsList
+    
+    local OptionsLayout = Instance.new("UIListLayout")
+    OptionsLayout.Padding = UDim.new(0, 4)
+    OptionsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    OptionsLayout.Parent = OptionsList
+    
+    local OptionsPadding = Instance.new("UIPadding")
+    OptionsPadding.PaddingTop = UDim.new(0, 6)
+    OptionsPadding.PaddingBottom = UDim.new(0, 6)
+    OptionsPadding.PaddingLeft = UDim.new(0, 6)
+    OptionsPadding.PaddingRight = UDim.new(0, 6)
+    OptionsPadding.Parent = OptionsList
+    
+    for _, option in ipairs(options) do
+        local OptionButton = Instance.new("TextButton")
+        OptionButton.Size = UDim2.new(1, -12, 0, 32)
+        OptionButton.BackgroundColor3 = Color3.fromRGB(60, 60, 75)
+        OptionButton.BackgroundTransparency = 0.3
+        OptionButton.Text = option
+        OptionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        OptionButton.TextSize = 14
+        OptionButton.Font = Enum.Font.Gotham
+        OptionButton.ZIndex = 151
+        OptionButton.Parent = OptionsList
+        
+        local OptCorner = Instance.new("UICorner")
+        OptCorner.CornerRadius = UDim.new(0, 6)
+        OptCorner.Parent = OptionButton
+        
+        OptionButton.MouseEnter:Connect(function()
+            TweenColor(OptionButton, "BackgroundColor3", Color3.fromRGB(100, 100, 200), 0.2)
+            TweenService:Create(OptionButton, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {
+                BackgroundTransparency = 0.1
+            }):Play()
+        end)
+        
+        OptionButton.MouseLeave:Connect(function()
+            TweenColor(OptionButton, "BackgroundColor3", Color3.fromRGB(60, 60, 75), 0.2)
+            TweenService:Create(OptionButton, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {
+                BackgroundTransparency = 0.3
+            }):Play()
+        end)
+        
+        OptionButton.MouseButton1Click:Connect(function()
+            selected = option
+            DropButton.Text = selected .. " " .. Icons.ChevronDown
+            
+            opened = false
+            TweenSize(OptionsList, UDim2.new(0, OptionsList.AbsoluteSize.X, 0, 0), 0.25, Enum.EasingStyle.Quart)
+            task.wait(0.25)
+            OptionsList.Visible = false
+            
+            pcall(callback, selected)
+        end)
+    end
+    
+    DropButton.MouseButton1Click:Connect(function()
+        opened = not opened
+        
+        if opened then
+            local absolutePos = DropButton.AbsolutePosition
+            local absoluteSize = DropButton.AbsoluteSize
+            
+            OptionsList.Position = UDim2.new(0, absolutePos.X, 0, absolutePos.Y + absoluteSize.Y + 8)
+            OptionsList.Size = UDim2.new(0, absoluteSize.X, 0, 0)
+            OptionsList.Visible = true
+            
+            local targetHeight = math.min(#options * 36 + 16, 200)
+            TweenSize(OptionsList, UDim2.new(0, absoluteSize.X, 0, targetHeight), 0.3, Enum.EasingStyle.Quart)
+        else
+            TweenSize(OptionsList, UDim2.new(0, OptionsList.AbsoluteSize.X, 0, 0), 0.25, Enum.EasingStyle.Quart)
+            task.wait(0.25)
+            OptionsList.Visible = false
+        end
+    end)
+    
+    return Frame
+end
+
+-- Add Notification
+function PrismHub:Notify(title, message, duration)
+    duration = duration or 3
+    
+    local Notification = Instance.new("Frame")
+    Notification.Size = UDim2.new(1, 0, 0, 0)
+    Notification.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+    Notification.BackgroundTransparency = 0.2
+    Notification.BorderSizePixel = 0
+    Notification.ZIndex = 201
+    Notification.Parent = self.NotificationContainer
+    
+    local NotifCorner = Instance.new("UICorner")
+    NotifCorner.CornerRadius = UDim.new(0, 10)
+    NotifCorner.Parent = Notification
+    
+    local NotifStroke = Instance.new("UIStroke")
+    NotifStroke.Color = Color3.fromRGB(100, 100, 200)
+    NotifStroke.Transparency = 0.5
+    NotifStroke.Thickness = 1.5
+    NotifStroke.Parent = Notification
+    
+    local Icon = Instance.new("TextLabel")
+    Icon.Size = UDim2.new(0, 30, 0, 30)
+    Icon.Position = UDim2.new(0, 10, 0, 10)
+    Icon.BackgroundTransparency = 1
+    Icon.Text = Icons.Bell
+    Icon.TextColor3 = Color3.fromRGB(150, 150, 255)
+    Icon.TextSize = 20
+    Icon.Font = Enum.Font.GothamBold
+    Icon.ZIndex = 202
+    Icon.Parent = Notification
+    
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(1, -50, 0, 20)
+    Title.Position = UDim2.new(0, 45, 0, 10)
+    Title.BackgroundTransparency = 1
+    Title.Text = title
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextSize = 14
+    Title.Font = Enum.Font.GothamBold
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.ZIndex = 202
+    Title.Parent = Notification
+    
+    local Message = Instance.new("TextLabel")
+    Message.Size = UDim2.new(1, -50, 0, 25)
+    Message.Position = UDim2.new(0, 45, 0, 30)
+    Message.BackgroundTransparency = 1
+    Message.Text = message
+    Message.TextColor3 = Color3.fromRGB(200, 200, 220)
+    Message.TextSize = 12
+    Message.Font = Enum.Font.Gotham
+    Message.TextXAlignment = Enum.TextXAlignment.Left
+    Message.TextYAlignment = Enum.TextYAlignment.Top
+    Message.TextWrapped = true
+    Message.ZIndex = 202
+    Message.Parent = Notification
+    
+    -- Animate in
+    TweenSize(Notification, UDim2.new(1, 0, 0, 70), 0.4, Enum.EasingStyle.Quart)
+    
+    -- Auto dismiss
+    task.delay(duration, function()
+        TweenSize(Notification, UDim2.new(1, 0, 0, 0), 0.3, Enum.EasingStyle.Quart)
+        task.wait(0.3)
+        Notification:Destroy()
+    end)
+    
+    return Notification
+end
+
+-- Set Info
+function PrismHub:SetInfo(text)
+    self.InfoLabel.Text = text
+end
+
+-- Toggle Minimize
+function PrismHub:ToggleMinimize()
+    self.Minimized = not self.Minimized
+    
+    local targetSize = self.Minimized and UDim2.new(self.Size.X.Scale, self.Size.X.Offset, 0, 45) or self.Size
+    
+    TweenSize(self.MainFrame, targetSize, 0.4, Enum.EasingStyle.Quart)
+    
+    if self.Minimized then
+        TweenService:Create(self.Blur, TweenInfo.new(0.4, Enum.EasingStyle.Quart), {Size = 0}):Play()
+    else
+        TweenService:Create(self.Blur, TweenInfo.new(0.4, Enum.EasingStyle.Quart), {Size = 5}):Play()
+    end
+end
+
+-- Make Draggable
+function PrismHub:MakeDraggable(frame, dragHandle)
+    local dragging = false
+    local dragStart = nil
+    local startPos = nil
+    
+    dragHandle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+        end
+    end)
+    
+    dragHandle.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            local newPos = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+            
+            TweenPosition(frame, newPos, 0.15, Enum.EasingStyle.Quart)
+            startPos = newPos
+            dragStart = input.Position
+        end
+    end)
+end
+
+-- Fade In Animation
+function PrismHub:FadeIn()
+    self.MainFrame.Size = UDim2.new(0, 0, 0, 0)
+    self.MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+    
+    TweenSize(self.MainFrame, self.Size, 0.5, Enum.EasingStyle.Quart)
+    TweenPosition(self.MainFrame, UDim2.new(0.5, -self.Size.X.Offset/2, 0.5, -self.Size.Y.Offset/2), 0.5, Enum.EasingStyle.Quart)
+    TweenService:Create(self.Blur, TweenInfo.new(0.5, Enum.EasingStyle.Quart), {Size = 5}):Play()
+end
+
+-- Destroy Hub
+function PrismHub:Destroy()
+    TweenService:Create(self.MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+        Size = UDim2.new(0, 0, 0, 0),
+        Position = UDim2.new(0.5, 0, 0.5, 0)
+    }):Play()
+    
+    TweenService:Create(self.Blur, TweenInfo.new(0.4, Enum.EasingStyle.Quart), {Size = 0}):Play()
+    
+    task.wait(0.4)
+    self.ScreenGui:Destroy()
+    self.Blur:Destroy()
+end
+
+return PrismHub
