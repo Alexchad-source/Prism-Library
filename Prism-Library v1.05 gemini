@@ -1,0 +1,836 @@
+local PrismHub = {}
+PrismHub.__index = PrismHub
+
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local RunService = game:GetService("RunService")
+
+--// Configuration Defaults
+local DefaultConfig = {
+    Name = "Prism Hub",
+    Size = UDim2.new(0, 800, 0, 550),
+    Theme = "Purple",
+    
+    -- Feature Toggles
+    BackgroundAnimation = true,
+    BlurEnabled = true,
+    BlurIntensity = 15,
+    
+    -- Sizing (Global Tweaks)
+    UIScale = 1.0,
+    ElementHeight = 42, -- Height of buttons/toggles
+    ElementCorner = 10, -- Corner radius
+    FontSize = 15,
+    SidebarWidth = 70
+}
+
+--// Icons
+local Icons = {
+    Home = "🏠",
+    Info = "ℹ",
+    Settings = "⚙",
+    ChevronDown = "›",
+    Check = "✓",
+    X = "✕",
+    Minus = "─",
+    Bell = "🔔",
+    Edit = "✎"
+}
+
+--// Helper Functions
+local function CreateBlur(parent, intensity)
+    local blur = Instance.new("BlurEffect")
+    blur.Size = intensity
+    blur.Parent = parent or workspace.CurrentCamera
+    blur.Enabled = false 
+    return blur
+end
+
+local function Tween(object, properties, duration, style, direction)
+    local info = TweenInfo.new(
+        duration or 0.3, 
+        style or Enum.EasingStyle.Quart, 
+        direction or Enum.EasingDirection.Out
+    )
+    local tween = TweenService:Create(object, info, properties)
+    tween:Play()
+    return tween
+end
+
+local function CreateGradient(parent, color1, color2)
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, color1 or Color3.fromRGB(100, 100, 255)),
+        ColorSequenceKeypoint.new(1, color2 or Color3.fromRGB(150, 100, 255))
+    }
+    gradient.Rotation = 45
+    gradient.Parent = parent
+    return gradient
+end
+
+--// Main Library
+function PrismHub:CreateHub(userConfig)
+    local self = setmetatable({}, PrismHub)
+    
+    -- Merge Defaults with User Config
+    self.Config = userConfig or {}
+    for key, value in pairs(DefaultConfig) do
+        if self.Config[key] == nil then
+            self.Config[key] = value
+        end
+    end
+
+    self.Tabs = {}
+    self.CurrentTab = nil
+    self.CurrentPage = "Home"
+    self.Minimized = false
+    self.Threads = {} -- Store animation threads to cancel them later
+    
+    -- State locks
+    self.switchingTab = false
+    self.switchingPage = false
+    
+    -- Create ScreenGui
+    self.ScreenGui = Instance.new("ScreenGui")
+    self.ScreenGui.Name = "PrismHub_" .. math.random(1000,9999)
+    self.ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    self.ScreenGui.Parent = CoreGui
+    
+    -- Dropdown & Notification Layers
+    self.DropdownContainer = Instance.new("Frame")
+    self.DropdownContainer.Name = "Dropdowns"
+    self.DropdownContainer.Size = UDim2.fromScale(1, 1)
+    self.DropdownContainer.BackgroundTransparency = 1
+    self.DropdownContainer.ZIndex = 100
+    self.DropdownContainer.Parent = self.ScreenGui
+    
+    self.NotificationContainer = Instance.new("Frame")
+    self.NotificationContainer.Name = "Notifications"
+    self.NotificationContainer.Size = UDim2.new(0, 300, 1, 0)
+    self.NotificationContainer.Position = UDim2.new(1, -320, 0, 20)
+    self.NotificationContainer.BackgroundTransparency = 1
+    self.NotificationContainer.ZIndex = 200
+    self.NotificationContainer.Parent = self.ScreenGui
+    
+    local NotifLayout = Instance.new("UIListLayout")
+    NotifLayout.Padding = UDim.new(0, 10)
+    NotifLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    NotifLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+    NotifLayout.Parent = self.NotificationContainer
+
+    -- Main Frame
+    self.MainFrame = Instance.new("Frame")
+    self.MainFrame.Name = "MainFrame"
+    self.MainFrame.Size = self.Config.Size
+    self.MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    self.MainFrame.Position = UDim2.fromScale(0.5, 0.5)
+    self.MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+    self.MainFrame.BackgroundTransparency = 0.2
+    self.MainFrame.ClipsDescendants = true
+    self.MainFrame.Parent = self.ScreenGui
+    
+    -- UI Scale for resizing
+    self.UIScale = Instance.new("UIScale")
+    self.UIScale.Scale = self.Config.UIScale
+    self.UIScale.Parent = self.MainFrame
+
+    -- Styling
+    local MainCorner = Instance.new("UICorner")
+    MainCorner.CornerRadius = UDim.new(0, 16)
+    MainCorner.Parent = self.MainFrame
+    
+    local MainStroke = Instance.new("UIStroke")
+    MainStroke.Color = Color3.fromRGB(120, 100, 200)
+    MainStroke.Transparency = 0.5
+    MainStroke.Thickness = 2
+    MainStroke.Parent = self.MainFrame
+    
+    -- Blur
+    self.Blur = CreateBlur(workspace.CurrentCamera, 0)
+    if self.Config.BlurEnabled then
+        self.Blur.Enabled = true
+        Tween(self.Blur, {Size = self.Config.BlurIntensity}, 1)
+    end
+
+    -- Background System
+    self:SetupBackground()
+
+    -- Top Bar
+    self.TopBar = self:CreateGlassPanel(self.MainFrame, UDim2.new(1, 0, 0, 45), UDim2.new(0, 0, 0, 0), 10)
+    
+    local Title = Instance.new("TextLabel")
+    Title.Name = "Title"
+    Title.Size = UDim2.new(1, -120, 1, 0)
+    Title.Position = UDim2.new(0, 15, 0, 0)
+    Title.BackgroundTransparency = 1
+    Title.Text = self.Config.Name
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextSize = 20
+    Title.Font = Enum.Font.GothamBold
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.ZIndex = 11
+    Title.Parent = self.TopBar
+    
+    CreateGradient(Title, Color3.fromRGB(150, 150, 255), Color3.fromRGB(200, 150, 255))
+
+    -- Control Buttons
+    self:CreateTopButtons()
+
+    -- Layout Containers
+    self.Sidebar = self:CreateGlassPanel(self.MainFrame, UDim2.new(0, self.Config.SidebarWidth, 1, -55), UDim2.new(0, 5, 0, 50), 10)
+    
+    self.ContentFrame = Instance.new("Frame")
+    self.ContentFrame.Name = "Content"
+    self.ContentFrame.Size = UDim2.new(1, -(self.Config.SidebarWidth + 15), 1, -60)
+    self.ContentFrame.Position = UDim2.new(0, self.Config.SidebarWidth + 10, 0, 55)
+    self.ContentFrame.BackgroundTransparency = 1
+    self.ContentFrame.ClipsDescendants = true
+    self.ContentFrame.ZIndex = 10
+    self.ContentFrame.Parent = self.MainFrame
+
+    -- Pages (Home, Info, Settings)
+    self:SetupPages()
+    
+    -- Draggable
+    self:MakeDraggable(self.MainFrame, self.TopBar)
+    
+    -- Initialize Internal Settings in the Settings Tab
+    self:InitInternalSettings()
+    
+    -- Intro Animation
+    self:FadeIn()
+
+    return self
+end
+
+function PrismHub:SetupBackground()
+    -- Background Container
+    self.Background = Instance.new("Frame")
+    self.Background.Name = "PrismBackground"
+    self.Background.Size = UDim2.fromScale(1, 1)
+    self.Background.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+    self.Background.BorderSizePixel = 0
+    self.Background.ZIndex = 0
+    self.Background.Parent = self.MainFrame
+    
+    local BackCorner = Instance.new("UICorner")
+    BackCorner.CornerRadius = UDim.new(0, 16)
+    BackCorner.Parent = self.Background
+
+    -- Only run complex visuals if animation is enabled
+    if self.Config.BackgroundAnimation then
+        self:StartPrisms()
+    end
+end
+
+function PrismHub:StartPrisms()
+    -- Clear existing
+    for _, v in pairs(self.Background:GetChildren()) do
+        if v:IsA("Frame") and v.Name == "Prism" then v:Destroy() end
+    end
+
+    self.AnimationEnabled = true
+
+    -- Gradient Overlay
+    local Overlay = Instance.new("Frame")
+    Overlay.Name = "GradientOverlay"
+    Overlay.Size = UDim2.fromScale(1, 1)
+    Overlay.BackgroundColor3 = Color3.fromRGB(255,255,255)
+    Overlay.BackgroundTransparency = 1
+    Overlay.ZIndex = 1
+    Overlay.Parent = self.Background
+    
+    local OverlayCorner = Instance.new("UICorner")
+    OverlayCorner.CornerRadius = UDim.new(0, 16)
+    OverlayCorner.Parent = Overlay
+
+    local gradient = CreateGradient(Overlay, Color3.fromRGB(80, 60, 200), Color3.fromRGB(60, 100, 180))
+    gradient.Transparency = NumberSequence.new(0.7)
+
+    -- Prisms
+    for i = 1, 15 do
+        local Prism = Instance.new("Frame")
+        Prism.Name = "Prism"
+        Prism.Size = UDim2.new(0, math.random(50, 150), 0, math.random(50, 150))
+        Prism.Position = UDim2.new(math.random(), 0, math.random(), 0)
+        Prism.BackgroundColor3 = Color3.fromRGB(math.random(80, 150), math.random(60, 120), math.random(180, 255))
+        Prism.BackgroundTransparency = math.random(80, 95) / 100
+        Prism.BorderSizePixel = 0
+        Prism.Rotation = math.random(0, 360)
+        Prism.ZIndex = 0
+        Prism.Parent = self.Background
+        
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, math.random(8, 20))
+        corner.Parent = Prism
+        
+        -- Animate
+        task.spawn(function()
+            while self.ScreenGui.Parent and self.AnimationEnabled do
+                local newPos = UDim2.new(math.random(), 0, math.random(), 0)
+                local newRot = math.random(0, 360)
+                local duration = math.random(10, 25)
+                
+                Tween(Prism, {Position = newPos, Rotation = newRot}, duration, Enum.EasingStyle.Linear)
+                task.wait(duration)
+            end
+        end)
+    end
+end
+
+function PrismHub:StopPrisms()
+    self.AnimationEnabled = false
+    for _, v in pairs(self.Background:GetChildren()) do
+        if v.Name == "Prism" then
+            Tween(v, {BackgroundTransparency = 1}, 0.5)
+            game.Debris:AddItem(v, 0.5)
+        end
+    end
+end
+
+function PrismHub:CreateGlassPanel(parent, size, position, zindex)
+    local Panel = Instance.new("Frame")
+    Panel.Size = size
+    Panel.Position = position
+    Panel.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    Panel.BackgroundTransparency = 0.4
+    Panel.BorderSizePixel = 0
+    Panel.ZIndex = zindex or 3
+    Panel.Parent = parent
+    
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 12)
+    Corner.Parent = Panel
+    
+    local Stroke = Instance.new("UIStroke")
+    Stroke.Color = Color3.fromRGB(100, 100, 150)
+    Stroke.Transparency = 0.7
+    Stroke.Thickness = 1.5
+    Stroke.Parent = Panel
+    
+    return Panel
+end
+
+function PrismHub:CreateTopButtons()
+    local function MakeBtn(icon, pos, cb)
+        local Btn = Instance.new("TextButton")
+        Btn.Size = UDim2.new(0, 35, 0, 35)
+        Btn.Position = pos
+        Btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+        Btn.BackgroundTransparency = 0.3
+        Btn.Text = icon
+        Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Btn.TextSize = 18
+        Btn.Font = Enum.Font.GothamBold
+        Btn.ZIndex = 11
+        Btn.Parent = self.TopBar
+        
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 8)
+        Corner.Parent = Btn
+        
+        local Stroke = Instance.new("UIStroke")
+        Stroke.Color = Color3.fromRGB(100, 100, 150)
+        Stroke.Transparency = 0.7
+        Stroke.Thickness = 1
+        Stroke.Parent = Btn
+
+        Btn.MouseButton1Click:Connect(cb)
+        
+        Btn.MouseEnter:Connect(function() Tween(Btn, {BackgroundTransparency = 0.1}, 0.2) end)
+        Btn.MouseLeave:Connect(function() Tween(Btn, {BackgroundTransparency = 0.3}, 0.2) end)
+    end
+
+    MakeBtn(Icons.X, UDim2.new(1, -42, 0, 5), function() self:Destroy() end)
+    MakeBtn(Icons.Minus, UDim2.new(1, -82, 0, 5), function() self:ToggleMinimize() end)
+end
+
+--// Page Management
+function PrismHub:SetupPages()
+    -- Containers
+    self.HomeContainer = Instance.new("Frame", self.ContentFrame)
+    self.HomeContainer.Name = "Home"
+    self.HomeContainer.Size = UDim2.fromScale(1, 1)
+    self.HomeContainer.BackgroundTransparency = 1
+    
+    self.InfoContainer = Instance.new("Frame", self.ContentFrame)
+    self.InfoContainer.Name = "Info"
+    self.InfoContainer.Size = UDim2.fromScale(1, 1)
+    self.InfoContainer.BackgroundTransparency = 1
+    self.InfoContainer.Visible = false
+    self.InfoContainer.Position = UDim2.fromScale(0, 1) -- Start off screen
+
+    self.SettingsContainer = Instance.new("Frame", self.ContentFrame)
+    self.SettingsContainer.Name = "Settings"
+    self.SettingsContainer.Size = UDim2.fromScale(1, 1)
+    self.SettingsContainer.BackgroundTransparency = 1
+    self.SettingsContainer.Visible = false
+    self.SettingsContainer.Position = UDim2.fromScale(0, 1)
+
+    -- Inner Structure for Home
+    self.TabBar = self:CreateGlassPanel(self.HomeContainer, UDim2.new(1, -20, 0, 45), UDim2.new(0, 10, 0, 10), 12)
+    local TabLayout = Instance.new("UIListLayout", self.TabBar)
+    TabLayout.FillDirection = Enum.FillDirection.Horizontal
+    TabLayout.Padding = UDim.new(0, 8)
+    
+    local TabPad = Instance.new("UIPadding", self.TabBar)
+    TabPad.PaddingLeft = UDim.new(0, 8)
+    TabPad.PaddingTop = UDim.new(0, 8)
+
+    self.TabContent = self:CreateGlassPanel(self.HomeContainer, UDim2.new(1, -20, 1, -70), UDim2.new(0, 10, 0, 65), 12)
+    self.TabContent.ClipsDescendants = true
+
+    -- Build Sidebar
+    self:CreateSidebarButtons()
+    
+    -- Build Info Page (Credits)
+    self:BuildInfoPage()
+    
+    -- Build Settings Page (Layout)
+    self:BuildSettingsPageLayout()
+end
+
+function PrismHub:CreateSidebarButtons()
+    local navs = {
+        {Name = "Home", Icon = Icons.Home},
+        {Name = "Info", Icon = Icons.Info},
+        {Name = "Settings", Icon = Icons.Settings}
+    }
+    
+    local startY = 10
+    
+    for i, nav in ipairs(navs) do
+        local Btn = Instance.new("TextButton")
+        Btn.Size = UDim2.new(0, 50, 0, 50)
+        Btn.Position = UDim2.new(0.5, -25, 0, startY + (i-1)*60)
+        Btn.BackgroundColor3 = self.Config.Theme == "Purple" and Color3.fromRGB(100, 100, 200) or Color3.fromRGB(80, 80, 80)
+        Btn.BackgroundTransparency = i == 1 and 0.2 or 0.8 -- Active state for Home
+        Btn.Text = nav.Icon
+        Btn.TextColor3 = Color3.new(1,1,1)
+        Btn.TextSize = 24
+        Btn.Parent = self.Sidebar
+        Btn.Font = Enum.Font.GothamBold
+        
+        local C = Instance.new("UICorner", Btn)
+        C.CornerRadius = UDim.new(0, 12)
+        
+        Btn.MouseButton1Click:Connect(function()
+            self:SwitchPage(nav.Name, Btn)
+        end)
+    end
+end
+
+function PrismHub:SwitchPage(pageName, buttonClicked)
+    if self.switchingPage or self.CurrentPage == pageName then return end
+    self.switchingPage = true
+
+    -- Update Buttons
+    for _, b in pairs(self.Sidebar:GetChildren()) do
+        if b:IsA("TextButton") then
+            Tween(b, {BackgroundTransparency = 0.8}, 0.3)
+        end
+    end
+    Tween(buttonClicked, {BackgroundTransparency = 0.2}, 0.3)
+
+    -- Page Logic
+    local pages = {Home = self.HomeContainer, Info = self.InfoContainer, Settings = self.SettingsContainer}
+    local prev = pages[self.CurrentPage]
+    local next = pages[pageName]
+
+    next.Visible = true
+    next.Position = UDim2.fromScale(0, 1)
+
+    Tween(prev, {Position = UDim2.fromScale(0, -1)}, 0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+    Tween(next, {Position = UDim2.fromScale(0, 0)}, 0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+    task.wait(0.4)
+    prev.Visible = false
+    self.CurrentPage = pageName
+    self.switchingPage = false
+end
+
+--// Settings & Info Page Builders
+function PrismHub:BuildInfoPage()
+    local Box = self:CreateGlassPanel(self.InfoContainer, UDim2.new(1, -20, 1, -20), UDim2.new(0, 10, 0, 10), 12)
+    local Title = Instance.new("TextLabel", Box)
+    Title.Text = "Information"
+    Title.Font = Enum.Font.GothamBold
+    Title.TextSize = 24
+    Title.TextColor3 = Color3.new(1,1,1)
+    Title.Size = UDim2.new(1, -30, 0, 40)
+    Title.Position = UDim2.new(0, 15, 0, 10)
+    Title.BackgroundTransparency = 1
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+
+    local Desc = Instance.new("TextLabel", Box)
+    Desc.Text = "Prism Hub Library\nVersion: 2.0 Remastered\n\nConfigurable UI System by AI."
+    Desc.Font = Enum.Font.Gotham
+    Desc.TextSize = 16
+    Desc.TextColor3 = Color3.fromRGB(200, 200, 220)
+    Desc.Size = UDim2.new(1, -30, 1, -60)
+    Desc.Position = UDim2.new(0, 15, 0, 60)
+    Desc.BackgroundTransparency = 1
+    Desc.TextXAlignment = Enum.TextXAlignment.Left
+    Desc.TextYAlignment = Enum.TextYAlignment.Top
+end
+
+function PrismHub:BuildSettingsPageLayout()
+    local Box = self:CreateGlassPanel(self.SettingsContainer, UDim2.new(1, -20, 1, -20), UDim2.new(0, 10, 0, 10), 12)
+    
+    local Title = Instance.new("TextLabel", Box)
+    Title.Text = "Interface Configuration"
+    Title.Font = Enum.Font.GothamBold
+    Title.TextSize = 24
+    Title.TextColor3 = Color3.new(1,1,1)
+    Title.Size = UDim2.new(1, -30, 0, 40)
+    Title.Position = UDim2.new(0, 15, 0, 10)
+    Title.BackgroundTransparency = 1
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+
+    self.SettingsList = Instance.new("ScrollingFrame", Box)
+    self.SettingsList.Size = UDim2.new(1, -20, 1, -60)
+    self.SettingsList.Position = UDim2.new(0, 10, 0, 55)
+    self.SettingsList.BackgroundTransparency = 1
+    self.SettingsList.BorderSizePixel = 0
+    self.SettingsList.ScrollBarThickness = 4
+    
+    local Layout = Instance.new("UIListLayout", self.SettingsList)
+    Layout.Padding = UDim.new(0, 8)
+    Layout.SortOrder = Enum.SortOrder.LayoutOrder
+end
+
+--// Internal Settings Implementation
+function PrismHub:InitInternalSettings()
+    -- We create a fake "Tab" object to reuse the AddToggle/AddSlider functions
+    -- but we direct them to the SettingsList frame.
+    local SettingsTab = {
+        Container = self.SettingsList,
+        Hub = self,
+        Config = self.Config
+    }
+    setmetatable(SettingsTab, {__index = self})
+
+    -- Blur Toggle
+    SettingsTab:AddToggle("Blur Effect", self.Config.BlurEnabled, function(v)
+        self.Config.BlurEnabled = v
+        self.Blur.Enabled = true
+        Tween(self.Blur, {Size = v and self.Config.BlurIntensity or 0}, 0.5)
+    end)
+
+    -- Background Animation Toggle
+    SettingsTab:AddToggle("Background Animation", self.Config.BackgroundAnimation, function(v)
+        self.Config.BackgroundAnimation = v
+        if v then
+            self:StartPrisms()
+        else
+            self:StopPrisms()
+        end
+    end)
+
+    -- UI Scale Slider
+    SettingsTab:AddSlider("UI Size (Scale)", 50, 150, self.Config.UIScale * 100, function(v)
+        local scale = v / 100
+        Tween(self.UIScale, {Scale = scale}, 0.2)
+    end)
+    
+    -- Helper Label
+    local Note = Instance.new("TextLabel", self.SettingsList)
+    Note.Text = "Tweaking sizes applies instantly to scale, restart hub for base element size changes."
+    Note.TextColor3 = Color3.fromRGB(150,150,150)
+    Note.BackgroundTransparency = 1
+    Note.Size = UDim2.new(1,0,0,30)
+    Note.Font = Enum.Font.Gotham
+    Note.TextSize = 12
+end
+
+--// Tab Creation
+function PrismHub:CreateTab(tabName)
+    local Tab = {
+        Name = tabName,
+        Hub = self,
+        Order = #self.Tabs + 1
+    }
+    
+    -- Tab Button
+    local Btn = Instance.new("TextButton")
+    Btn.Name = tabName
+    Btn.Size = UDim2.new(0, 0, 1, -16) -- Auto width later
+    Btn.AutomaticSize = Enum.AutomaticSize.X
+    Btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    Btn.BackgroundTransparency = 0.4
+    Btn.Text = "   " .. tabName .. "   "
+    Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Btn.TextSize = self.Config.FontSize
+    Btn.Font = Enum.Font.GothamBold
+    Btn.Parent = self.TabBar
+    
+    local C = Instance.new("UICorner", Btn)
+    C.CornerRadius = UDim.new(0, 8)
+    local S = Instance.new("UIStroke", Btn)
+    S.Color = Color3.fromRGB(100, 100, 150)
+    S.Transparency = 0.7
+    
+    -- Container
+    local Container = Instance.new("ScrollingFrame")
+    Container.Name = tabName
+    Container.Size = UDim2.new(1, -20, 1, -20)
+    Container.Position = UDim2.new(0, 10, 0, 10)
+    Container.BackgroundTransparency = 1
+    Container.BorderSizePixel = 0
+    Container.ScrollBarThickness = 4
+    Container.Visible = false
+    Container.Parent = self.TabContent
+    
+    local Layout = Instance.new("UIListLayout", Container)
+    Layout.Padding = UDim.new(0, 6)
+    Layout.SortOrder = Enum.SortOrder.LayoutOrder
+    
+    Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        Container.CanvasSize = UDim2.new(0, 0, 0, Layout.AbsoluteContentSize.Y + 10)
+    end)
+
+    Tab.Container = Container
+    Tab.Button = Btn
+    
+    table.insert(self.Tabs, Tab)
+
+    -- Switch Logic
+    Btn.MouseButton1Click:Connect(function() self:SwitchTab(Tab) end)
+    
+    if #self.Tabs == 1 then self:SwitchTab(Tab) end
+
+    return setmetatable(Tab, {__index = self})
+end
+
+function PrismHub:SwitchTab(Tab)
+    if self.CurrentTab == Tab then return end
+    
+    -- Deselect Old
+    if self.CurrentTab then
+        Tween(self.CurrentTab.Button, {BackgroundTransparency = 0.4, BackgroundColor3 = Color3.fromRGB(40,40,50)}, 0.2)
+        self.CurrentTab.Container.Visible = false
+    end
+    
+    -- Select New
+    self.CurrentTab = Tab
+    Tab.Container.Visible = true
+    Tween(Tab.Button, {BackgroundTransparency = 0.2, BackgroundColor3 = Color3.fromRGB(100,100,200)}, 0.2)
+end
+
+--// Elements
+-- Note: We access 'self' which refers to the Tab object here, so we use self.Hub to get config
+
+function PrismHub:AddButton(text, callback)
+    local cfg = self.Hub.Config
+    local Button = Instance.new("TextButton")
+    Button.Size = UDim2.new(1, 0, 0, cfg.ElementHeight)
+    Button.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+    Button.BackgroundTransparency = 0.3
+    Button.Text = text
+    Button.TextColor3 = Color3.new(1,1,1)
+    Button.TextSize = cfg.FontSize
+    Button.Font = Enum.Font.GothamSemibold
+    Button.Parent = self.Container
+    
+    Instance.new("UICorner", Button).CornerRadius = UDim.new(0, cfg.ElementCorner)
+    
+    Button.MouseEnter:Connect(function() Tween(Button, {BackgroundTransparency = 0.1}, 0.2) end)
+    Button.MouseLeave:Connect(function() Tween(Button, {BackgroundTransparency = 0.3}, 0.2) end)
+    Button.MouseButton1Click:Connect(function()
+        Tween(Button, {Size = UDim2.new(1, -10, 0, cfg.ElementHeight)}, 0.05, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        task.wait(0.05)
+        Tween(Button, {Size = UDim2.new(1, 0, 0, cfg.ElementHeight)}, 0.2, Enum.EasingStyle.Elastic)
+        pcall(callback)
+    end)
+    return Button
+end
+
+function PrismHub:AddToggle(text, default, callback)
+    local cfg = self.Hub.Config
+    local toggled = default or false
+    
+    local Frame = Instance.new("TextButton") -- Clickable background
+    Frame.Text = ""
+    Frame.Size = UDim2.new(1, 0, 0, cfg.ElementHeight)
+    Frame.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+    Frame.BackgroundTransparency = 0.3
+    Frame.Parent = self.Container
+    Frame.AutoButtonColor = false
+    
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, cfg.ElementCorner)
+    
+    local Label = Instance.new("TextLabel", Frame)
+    Label.Text = text
+    Label.Size = UDim2.new(1, -60, 1, 0)
+    Label.Position = UDim2.new(0, 15, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.TextColor3 = Color3.new(1,1,1)
+    Label.Font = Enum.Font.GothamSemibold
+    Label.TextSize = cfg.FontSize
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    
+    -- Toggle Graphic (Pill shape)
+    local Pill = Instance.new("Frame", Frame)
+    Pill.Size = UDim2.new(0, 44, 0, 22)
+    Pill.AnchorPoint = Vector2.new(1, 0.5)
+    Pill.Position = UDim2.new(1, -15, 0.5, 0)
+    Pill.BackgroundColor3 = toggled and Color3.fromRGB(100, 100, 220) or Color3.fromRGB(60, 60, 70)
+    
+    Instance.new("UICorner", Pill).CornerRadius = UDim.new(1, 0)
+    
+    local Dot = Instance.new("Frame", Pill)
+    Dot.Size = UDim2.new(0, 16, 0, 16)
+    Dot.Position = toggled and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)
+    Dot.BackgroundColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", Dot).CornerRadius = UDim.new(1, 0)
+    
+    local function Update()
+        toggled = not toggled
+        local color = toggled and Color3.fromRGB(100, 100, 220) or Color3.fromRGB(60, 60, 70)
+        local pos = toggled and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)
+        
+        Tween(Pill, {BackgroundColor3 = color}, 0.3)
+        Tween(Dot, {Position = pos}, 0.3, Enum.EasingStyle.Back)
+        pcall(callback, toggled)
+    end
+    
+    Frame.MouseButton1Click:Connect(Update)
+    return Frame
+end
+
+function PrismHub:AddSlider(text, min, max, default, callback)
+    local cfg = self.Hub.Config
+    local value = default or min
+    
+    local Frame = Instance.new("Frame", self.Container)
+    Frame.Size = UDim2.new(1, 0, 0, cfg.ElementHeight + 15) -- Bit taller
+    Frame.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+    Frame.BackgroundTransparency = 0.3
+    
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, cfg.ElementCorner)
+    
+    local Label = Instance.new("TextLabel", Frame)
+    Label.Text = text
+    Label.Position = UDim2.new(0, 15, 0, 8)
+    Label.Size = UDim2.new(1, -30, 0, 20)
+    Label.BackgroundTransparency = 1
+    Label.TextColor3 = Color3.new(1,1,1)
+    Label.Font = Enum.Font.GothamSemibold
+    Label.TextSize = cfg.FontSize
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local ValLabel = Instance.new("TextLabel", Frame)
+    ValLabel.Text = tostring(value)
+    ValLabel.Position = UDim2.new(0, 15, 0, 8)
+    ValLabel.Size = UDim2.new(1, -30, 0, 20)
+    ValLabel.BackgroundTransparency = 1
+    ValLabel.TextColor3 = Color3.fromRGB(150, 150, 255)
+    ValLabel.Font = Enum.Font.GothamBold
+    ValLabel.TextSize = cfg.FontSize
+    ValLabel.TextXAlignment = Enum.TextXAlignment.Right
+    
+    local BarBack = Instance.new("TextButton", Frame) -- Clickable area
+    BarBack.Text = ""
+    BarBack.Size = UDim2.new(1, -30, 0, 6)
+    BarBack.Position = UDim2.new(0, 15, 0, 35)
+    BarBack.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    BarBack.AutoButtonColor = false
+    Instance.new("UICorner", BarBack).CornerRadius = UDim.new(1, 0)
+    
+    local Fill = Instance.new("Frame", BarBack)
+    Fill.Size = UDim2.new((value - min) / (max - min), 0, 1, 0)
+    Fill.BackgroundColor3 = Color3.fromRGB(100, 100, 220)
+    Instance.new("UICorner", Fill).CornerRadius = UDim.new(1, 0)
+    
+    local dragging = false
+    
+    local function move(input)
+        local pos = math.clamp((input.Position.X - BarBack.AbsolutePosition.X) / BarBack.AbsoluteSize.X, 0, 1)
+        local newVal = math.floor(min + ((max - min) * pos))
+        
+        if newVal ~= value then
+            value = newVal
+            ValLabel.Text = tostring(value)
+            Tween(Fill, {Size = UDim2.new(pos, 0, 1, 0)}, 0.1)
+            pcall(callback, value)
+        end
+    end
+    
+    BarBack.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            move(input)
+        end
+    end)
+    
+    BarBack.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            move(input)
+        end
+    end)
+end
+
+--// Utility
+function PrismHub:MakeDraggable(frame, handle)
+    local dragging, dragInput, dragStart, startPos
+    
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            local target = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+            Tween(frame, {Position = target}, 0.1)
+        end
+    end)
+end
+
+function PrismHub:ToggleMinimize()
+    self.Minimized = not self.Minimized
+    local h = self.Minimized and 45 or self.Config.Size.Y.Offset
+    Tween(self.MainFrame, {Size = UDim2.new(self.Config.Size.X.Scale, self.Config.Size.X.Offset, 0, h)}, 0.4)
+end
+
+function PrismHub:FadeIn()
+    self.MainFrame.Size = UDim2.new(0,0,0,0)
+    Tween(self.MainFrame, {Size = self.Config.Size}, 0.5, Enum.EasingStyle.Back)
+end
+
+function PrismHub:Destroy()
+    self:StopPrisms()
+    Tween(self.MainFrame, {Size = UDim2.new(0,0,0,0)}, 0.3)
+    Tween(self.Blur, {Size = 0}, 0.3)
+    task.wait(0.3)
+    self.ScreenGui:Destroy()
+    self.Blur:Destroy()
+end
+
+return PrismHub
