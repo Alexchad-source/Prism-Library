@@ -13,7 +13,7 @@ local Icons = {
     Settings = "⚙",
     ChevronDown = "›",
     Check = "✓",
-    X = "X",
+    X = "✕",
     Minus = "─",
     Bell = "🔔"
 }
@@ -177,7 +177,6 @@ function PrismHub:CreateHub(config)
     config = config or {}
     self.HubName = config.Name or "Prism Hub"
     self.Size = config.Size or UDim2.new(0, 800, 0, 550)
-    self.SubTabsOnLeft = config.SubTabsOnLeft or false
     self.Theme = config.Theme or "Purple"
     
     self.Tabs = {}
@@ -400,7 +399,7 @@ function PrismHub:CreateIconButton(parent, icon, size, position)
     return Button
 end
 
--- Create Sidebar Buttons (Centered)
+-- Create Sidebar Buttons
 function PrismHub:CreateSidebarButtons()
     local buttons = {
         {Name = "Home", Icon = Icons.Home, Page = "Home"},
@@ -454,7 +453,7 @@ function PrismHub:CreateSidebarButtons()
         end)
         
         Button.MouseButton1Click:Connect(function()
-            if self.switchingPage then return end -- Prevent spam
+            if self.switchingPage then return end
             
             local original = Button.Size
             TweenSize(Button, UDim2.new(0, 55, 0, 55), 0.1, Enum.EasingStyle.Quad)
@@ -470,7 +469,7 @@ function PrismHub:CreateSidebarButtons()
     end
 end
 
--- Switch Pages (Improved with lock)
+-- Switch Pages
 function PrismHub:SwitchPage(pageName)
     if self.CurrentPage == pageName or self.switchingPage then return end
     
@@ -490,29 +489,23 @@ function PrismHub:SwitchPage(pageName)
         return 
     end
     
-    -- Determine direction based on page order
     local currentOrder = self.PageOrder[self.CurrentPage] or 1
     local newOrder = self.PageOrder[pageName] or 1
     local direction = newOrder > currentOrder and 1 or -1
     
-    -- Make new container visible and position it
     newContainer.Visible = true
     newContainer.Position = UDim2.new(0, 0, direction, 0)
     
-    -- Slide both containers simultaneously
     local tweenInfo = TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
     
-    -- Slide current container out
     TweenService:Create(currentContainer, tweenInfo, {
         Position = UDim2.new(0, 0, -direction, 0)
     }):Play()
     
-    -- Slide new container in
     TweenService:Create(newContainer, tweenInfo, {
         Position = UDim2.new(0, 0, 0, 0)
     }):Play()
     
-    -- Wait for animation to complete then hide old container
     task.wait(0.4)
     currentContainer.Visible = false
     currentContainer.Position = UDim2.new(0, 0, 0, 0)
@@ -625,7 +618,7 @@ function PrismHub:CreateSettingsPage()
     return SettingsContainer
 end
 
--- Create Tab (Improved with position tracking)
+-- Create Tab
 function PrismHub:CreateTab(tabName)
     local Tab = {
         Name = tabName,
@@ -633,13 +626,10 @@ function PrismHub:CreateTab(tabName)
         Container = nil,
         Button = nil,
         Hub = self,
-        SubTabs = {},
-        CurrentSubTab = nil,
-        Order = #self.Tabs + 1,
-        SubTabOrder = {} -- Track subtab order
+        Order = #self.Tabs + 1
     }
     
-    -- Tab Button with glass effect
+    -- Tab Button
     local TabButton = Instance.new("TextButton")
     TabButton.Name = tabName
     TabButton.Size = UDim2.new(0, 120, 1, -16)
@@ -681,55 +671,19 @@ function PrismHub:CreateTab(tabName)
         end
     end)
     
-    -- Main Container (holds subtab bar and content)
-    local MainContainer = Instance.new("Frame")
-    MainContainer.Name = tabName .. "MainContainer"
-    MainContainer.Size = UDim2.new(1, -30, 1, -30)
-    MainContainer.Position = UDim2.new(0, 15, 0, 15)
-    MainContainer.BackgroundTransparency = 1
-    MainContainer.Visible = false
-    MainContainer.ClipsDescendants = false
-    MainContainer.ZIndex = 13
-    MainContainer.Parent = self.TabContent
-    
-    -- SubTab Bar (bigger buttons with less top padding)
-    Tab.SubTabBar = CreateGlassPanel(MainContainer, UDim2.new(1, 0, 0, 50), UDim2.new(0, 0, 0, 0), 14)
-    
-    local SubTabLayout = Instance.new("UIListLayout")
-    SubTabLayout.FillDirection = Enum.FillDirection.Horizontal
-    SubTabLayout.Padding = UDim.new(0, 8)
-    SubTabLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    SubTabLayout.Parent = Tab.SubTabBar
-    
-    local SubTabPadding = Instance.new("UIPadding")
-    SubTabPadding.PaddingLeft = UDim.new(0, 8)
-    SubTabPadding.PaddingTop = UDim.new(0, 5) -- Reduced from 8 to 5
-    SubTabPadding.PaddingBottom = UDim.new(0, 5) -- Added bottom padding
-    SubTabPadding.Parent = Tab.SubTabBar
-    
-    -- SubTab Content Container
-    Tab.SubTabContent = Instance.new("Frame")
-    Tab.SubTabContent.Name = "SubTabContent"
-    Tab.SubTabContent.Size = UDim2.new(1, 0, 1, -60)
-    Tab.SubTabContent.Position = UDim2.new(0, 0, 0, 60)
-    Tab.SubTabContent.BackgroundTransparency = 1
-    Tab.SubTabContent.ClipsDescendants = true
-    Tab.SubTabContent.ZIndex = 14
-    Tab.SubTabContent.Parent = MainContainer
-    
-    -- Default scrolling container (if no subtabs)
+    -- Tab Container
     local Container = Instance.new("ScrollingFrame")
     Container.Name = tabName .. "Container"
-    Container.Size = UDim2.new(1, 0, 1, 0)
-    Container.Position = UDim2.new(0, 0, 0, 0)
+    Container.Size = UDim2.new(1, -30, 1, -30)
+    Container.Position = UDim2.new(0, 15, 0, 15)
     Container.BackgroundTransparency = 1
     Container.BorderSizePixel = 0
     Container.ScrollBarThickness = 6
     Container.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 200)
     Container.Visible = false
     Container.ClipsDescendants = false
-    Container.ZIndex = 15
-    Container.Parent = Tab.SubTabContent
+    Container.ZIndex = 13
+    Container.Parent = self.TabContent
     
     local Layout = Instance.new("UIListLayout")
     Layout.Padding = UDim.new(0, 10)
@@ -738,12 +692,11 @@ function PrismHub:CreateTab(tabName)
     
     Tab.Container = Container
     Tab.Button = TabButton
-    Tab.MainContainer = MainContainer
     
     table.insert(self.Tabs, Tab)
     
     TabButton.MouseButton1Click:Connect(function()
-        if self.switchingTab then return end -- Prevent spam
+        if self.switchingTab then return end
         
         TweenSize(TabButton, UDim2.new(0, 115, 1, -18), 0.1, Enum.EasingStyle.Quad)
         task.wait(0.1)
@@ -762,7 +715,7 @@ function PrismHub:CreateTab(tabName)
     return setmetatable(Tab, {__index = self})
 end
 
--- Switch Tab (Improved with lock)
+-- Switch Tab
 function PrismHub:SwitchTab(tab)
     if self.CurrentTab == tab or self.switchingTab then return end
     
@@ -771,209 +724,42 @@ function PrismHub:SwitchTab(tab)
     local currentTab = self.CurrentTab
     
     if currentTab then
-        -- Determine direction based on tab order
         local direction = tab.Order > currentTab.Order and 1 or -1
         
-        -- Make new container visible and position it
-        tab.MainContainer.Visible = true
-        tab.MainContainer.Position = UDim2.new(direction, 15, 0, 15)
+        tab.Container.Visible = true
+        tab.Container.Position = UDim2.new(direction, 15, 0, 15)
         
-        -- Slide both containers simultaneously
         local tweenInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
         
-        -- Slide current tab out
-        TweenService:Create(currentTab.MainContainer, tweenInfo, {
+        TweenService:Create(currentTab.Container, tweenInfo, {
             Position = UDim2.new(-direction, 15, 0, 15)
         }):Play()
         
-        -- Slide new tab in
-        TweenService:Create(tab.MainContainer, tweenInfo, {
+        TweenService:Create(tab.Container, tweenInfo, {
             Position = UDim2.new(0, 15, 0, 15)
         }):Play()
         
-        -- Wait for animation then hide old tab
         task.wait(0.35)
-        currentTab.MainContainer.Visible = false
-        currentTab.MainContainer.Position = UDim2.new(0, 15, 0, 15)
+        currentTab.Container.Visible = false
+        currentTab.Container.Position = UDim2.new(0, 15, 0, 15)
         
-        -- Update button appearance
         TweenColor(currentTab.Button, "BackgroundColor3", Color3.fromRGB(40, 40, 50), 0.3)
         TweenService:Create(currentTab.Button, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {
             BackgroundTransparency = 0.4
         }):Play()
     else
-        -- First tab, just show it
-        tab.MainContainer.Visible = true
-        tab.MainContainer.Position = UDim2.new(0, 15, 0, 15)
+        tab.Container.Visible = true
+        tab.Container.Position = UDim2.new(0, 15, 0, 15)
     end
     
     self.CurrentTab = tab
     
-    -- Update new tab button appearance
     TweenColor(tab.Button, "BackgroundColor3", Color3.fromRGB(100, 100, 200), 0.3)
     TweenService:Create(tab.Button, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {
         BackgroundTransparency = 0.2
     }):Play()
     
     self.switchingTab = false
-end
-
--- Add SubTab
-function PrismHub:AddSubTab(subTabName)
-    local SubTab = {
-        Name = subTabName,
-        Elements = {},
-        Container = nil,
-        Button = nil,
-        ParentTab = self,
-        Order = #self.SubTabs + 1
-    }
-    
-    -- Store order
-    self.SubTabOrder[subTabName] = SubTab.Order
-    
-    -- SubTab Button (bigger size)
-    local SubTabButton = Instance.new("TextButton")
-    SubTabButton.Name = subTabName
-    SubTabButton.Size = UDim2.new(0, 130, 1, -10) -- Bigger width and using more vertical space
-    SubTabButton.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
-    SubTabButton.BackgroundTransparency = 0.3
-    SubTabButton.Text = subTabName
-    SubTabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    SubTabButton.TextSize = 15
-    SubTabButton.Font = Enum.Font.GothamBold
-    SubTabButton.ZIndex = 15
-    SubTabButton.LayoutOrder = SubTab.Order
-    SubTabButton.Parent = self.SubTabBar
-    
-    local SubTabCorner = Instance.new("UICorner")
-    SubTabCorner.CornerRadius = UDim.new(0, 8)
-    SubTabCorner.Parent = SubTabButton
-    
-    local SubTabStroke = Instance.new("UIStroke")
-    SubTabStroke.Color = Color3.fromRGB(100, 100, 150)
-    SubTabStroke.Transparency = 0.7
-    SubTabStroke.Thickness = 1
-    SubTabStroke.Parent = SubTabButton
-    
-    SubTabButton.MouseEnter:Connect(function()
-        if self.CurrentSubTab ~= SubTab then
-            TweenColor(SubTabButton, "BackgroundColor3", Color3.fromRGB(70, 70, 90), 0.2)
-            TweenService:Create(SubTabButton, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {
-                BackgroundTransparency = 0.1
-            }):Play()
-        end
-    end)
-    
-    SubTabButton.MouseLeave:Connect(function()
-        if self.CurrentSubTab ~= SubTab then
-            TweenColor(SubTabButton, "BackgroundColor3", Color3.fromRGB(50, 50, 65), 0.2)
-            TweenService:Create(SubTabButton, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {
-                BackgroundTransparency = 0.3
-            }):Play()
-        end
-    end)
-    
-    -- SubTab Container
-    local Container = Instance.new("ScrollingFrame")
-    Container.Name = subTabName .. "Container"
-    Container.Size = UDim2.new(1, 0, 1, 0)
-    Container.Position = UDim2.new(0, 0, 0, 0)
-    Container.BackgroundTransparency = 1
-    Container.BorderSizePixel = 0
-    Container.ScrollBarThickness = 6
-    Container.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 200)
-    Container.Visible = false
-    Container.ClipsDescendants = false
-    Container.ZIndex = 15
-    Container.Parent = self.SubTabContent
-    
-    local Layout = Instance.new("UIListLayout")
-    Layout.Padding = UDim.new(0, 10)
-    Layout.SortOrder = Enum.SortOrder.LayoutOrder
-    Layout.Parent = Container
-    
-    SubTab.Container = Container
-    SubTab.Button = SubTabButton
-    
-    table.insert(self.SubTabs, SubTab)
-    
-    -- Hide default container when first subtab is added
-    if #self.SubTabs == 1 then
-        self.Container.Visible = false
-    end
-    
-    SubTabButton.MouseButton1Click:Connect(function()
-        if self.Hub.switchingTab then return end -- Use hub's switching lock
-        
-        TweenSize(SubTabButton, UDim2.new(0, 125, 1, -12), 0.1, Enum.EasingStyle.Quad)
-        task.wait(0.1)
-        TweenSize(SubTabButton, UDim2.new(0, 130, 1, -10), 0.2, Enum.EasingStyle.Elastic)
-        self:SwitchSubTab(SubTab)
-    end)
-    
-    if #self.SubTabs == 1 then
-        self:SwitchSubTab(SubTab)
-    end
-    
-    Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        Container.CanvasSize = UDim2.new(0, 0, 0, Layout.AbsoluteContentSize.Y + 15)
-    end)
-    
-    return setmetatable(SubTab, {__index = self})
-end
-
--- Switch SubTab
-function PrismHub:SwitchSubTab(subTab)
-    if self.CurrentSubTab == subTab or self.Hub.switchingTab then return end
-    
-    self.Hub.switchingTab = true
-    
-    local currentSubTab = self.CurrentSubTab
-    
-    if currentSubTab then
-        -- Determine direction
-        local direction = subTab.Order > currentSubTab.Order and 1 or -1
-        
-        -- Position new subtab
-        subTab.Container.Visible = true
-        subTab.Container.Position = UDim2.new(direction, 0, 0, 0)
-        
-        local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-        
-        -- Slide out current
-        TweenService:Create(currentSubTab.Container, tweenInfo, {
-            Position = UDim2.new(-direction, 0, 0, 0)
-        }):Play()
-        
-        -- Slide in new
-        TweenService:Create(subTab.Container, tweenInfo, {
-            Position = UDim2.new(0, 0, 0, 0)
-        }):Play()
-        
-        task.wait(0.3)
-        currentSubTab.Container.Visible = false
-        currentSubTab.Container.Position = UDim2.new(0, 0, 0, 0)
-        
-        -- Update button
-        TweenColor(currentSubTab.Button, "BackgroundColor3", Color3.fromRGB(50, 50, 65), 0.2)
-        TweenService:Create(currentSubTab.Button, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {
-            BackgroundTransparency = 0.3
-        }):Play()
-    else
-        subTab.Container.Visible = true
-        subTab.Container.Position = UDim2.new(0, 0, 0, 0)
-    end
-    
-    self.CurrentSubTab = subTab
-    
-    -- Update new button
-    TweenColor(subTab.Button, "BackgroundColor3", Color3.fromRGB(100, 100, 200), 0.2)
-    TweenService:Create(subTab.Button, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {
-        BackgroundTransparency = 0.1
-    }):Play()
-    
-    self.Hub.switchingTab = false
 end
 
 -- Add Button
@@ -1252,7 +1038,7 @@ function PrismHub:AddSlider(text, min, max, default, callback)
     return Frame
 end
 
--- Add Dropdown (Fixed)
+-- Add Dropdown
 function PrismHub:AddDropdown(text, options, callback)
     local selected = options[1] or "None"
     local opened = false
@@ -1330,7 +1116,7 @@ function PrismHub:AddDropdown(text, options, callback)
         TweenColor(DropButton, "BackgroundColor3", Color3.fromRGB(60, 60, 75), 0.2)
     end)
     
-    -- Options List in dropdown container
+    -- Options List
     local OptionsList = Instance.new("Frame")
     OptionsList.Size = UDim2.new(0, 0, 0, 0)
     OptionsList.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
@@ -1488,10 +1274,8 @@ function PrismHub:Notify(title, message, duration)
     Message.ZIndex = 202
     Message.Parent = Notification
     
-    -- Animate in
     TweenSize(Notification, UDim2.new(1, 0, 0, 70), 0.4, Enum.EasingStyle.Quart)
     
-    -- Auto dismiss
     task.delay(duration, function()
         TweenSize(Notification, UDim2.new(1, 0, 0, 0), 0.3, Enum.EasingStyle.Quart)
         task.wait(0.3)
