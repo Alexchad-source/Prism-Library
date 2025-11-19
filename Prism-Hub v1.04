@@ -13,7 +13,7 @@ local Icons = {
     Settings = "⚙",
     ChevronDown = "›",
     Check = "✓",
-    X = "✕",
+    X = "X",
     Minus = "─",
     Bell = "🔔"
 }
